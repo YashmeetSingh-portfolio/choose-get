@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import '../style/signup.css';
+import '../style/signUp.css';
 import { doCreateUserWithEmailAndPassword, doSignInWithGoogle } from '../firebase/auth.js';
 import { useAuth } from '../context/index';
 import { FcGoogle } from 'react-icons/fc';
