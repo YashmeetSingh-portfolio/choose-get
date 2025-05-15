@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import '../style/products.css';
 import { useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
+import { FaShoppingCart, FaStar, FaRegStar, FaPlus, FaMinus } from 'react-icons/fa';
 const products = [
   {
     id: 1,
@@ -160,7 +161,6 @@ const products = [
     tags: ["ergonomic", "office", "laptop"]
   }
 ];
-
 function Products() {
   const [productQuantities, setProductQuantities] = useState(
     products.reduce((acc, product) => {
@@ -168,113 +168,176 @@ function Products() {
       return acc;
     }, {})
   );
-  const navigate = useNavigate()
+  
+  const [activeFilter, setActiveFilter] = useState('All');
+  const navigate = useNavigate();
+
+  // Filter products by category
+  const filteredProducts = activeFilter === 'All' 
+    ? products 
+    : products.filter(product => product.category === activeFilter);
+
+  // Get unique categories
+  const categories = ['All', ...new Set(products.map(product => product.category))];
+
   function handleQuantityChange(productId, newQuantity) {
-    if (newQuantity < 1) return;
+    if (newQuantity < 1 || newQuantity > 99) return;
     setProductQuantities(prev => ({
       ...prev,
       [productId]: newQuantity
     }));
   }
 
-  function handleAddToCart(product) {
+  function handleAddToCart(product, e) {
+    e.stopPropagation();
     try {
       const storedProducts = JSON.parse(localStorage.getItem('cartProducts') || '[]');
-      
-     
       const existingProductIndex = storedProducts.findIndex(p => p.id === product.id);
       
       let updatedProducts;
       if (existingProductIndex >= 0) {
-        
         updatedProducts = [...storedProducts];
         updatedProducts[existingProductIndex].quantity += productQuantities[product.id];
       } else {
-        
-        const productWithQuantity = {
+        updatedProducts = [...storedProducts, {
           ...product,
           quantity: productQuantities[product.id]
-        };
-        updatedProducts = [...storedProducts, productWithQuantity];
+        }];
       }
   
       localStorage.setItem('cartProducts', JSON.stringify(updatedProducts));
-      const count = updatedProducts.reduce((sum, item) => sum + item.quantity, 0);
-      localStorage.setItem('cartCount', count);
       window.dispatchEvent(new Event('cartUpdated'));
-
-      console.log('Cart updated:', updatedProducts);
     } catch (error) {
       console.error('Error handling cart update:', error);
     }
   }
   
- 
+  function renderStars(rating) {
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 >= 0.5;
+    
+    for (let i = 1; i <= 5; i++) {
+      if (i <= fullStars) {
+        stars.push(<FaStar key={i} className="star-icon full-star" />);
+      } else if (i === fullStars + 1 && hasHalfStar) {
+        stars.push(<FaStar key={i} className="star-icon half-star" />);
+      } else {
+        stars.push(<FaRegStar key={i} className="star-icon empty-star" />);
+      }
+    }
+    
+    return stars;
+  }
+
   return (
-    <>
-      <h2 className="section-title">Featured Products</h2>
+    <section className="products-section">
+      <div className="section-header">
+        <h2 className="section-title">Featured Products</h2>
+        <div className="category-filters">
+          {categories.map(category => (
+            <button
+              key={category}
+              className={`filter-button ${activeFilter === category ? 'active' : ''}`}
+              onClick={() => setActiveFilter(category)}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </div>
+      
       <div className="products-container">
-        {products.map((product) => (
+        {filteredProducts.map((product) => (
           <div 
             key={product.id} 
             className="product-card"
-            
+           
           >
-            <img 
-              src={product.image} 
-              alt={product.title} 
-              className="product-image" 
-              loading="lazy"
-            />
+            <div className="product-badge-container">
+              {product.tags.includes('bestseller') && (
+                <span className="product-badge bestseller">Bestseller</span>
+              )}
+              {product.tags.includes('eco-friendly') && (
+                <span className="product-badge eco">Eco-Friendly</span>
+              )}
+              {!product.inStock && (
+                <span className="product-badge oos">Out of Stock</span>
+              )}
+            </div>
+            
+            <div className="product-image-container">
+              <img 
+                src={product.image} 
+                alt={product.title} 
+                className="product-image" 
+                loading="lazy"
+              />
+            </div>
+            
             <div className="product-details">
-              <h2 className="product-title">{product.title}</h2>
+              <h3 className="product-title">{product.title}</h3>
               <p className="product-description">{product.description}</p>
+              
               <div className="price-container">
-                <p className="product-price">${product.price}</p>
+                <span className="product-price">${product.price}</span>
                 {product.originalPrice && (
-                  <p className="original-price"><s>${product.originalPrice}</s></p>
+                  <span className="original-price">${product.originalPrice}</span>
+                )}
+                {product.originalPrice && (
+                  <span className="discount-percent">
+                    {Math.round((1 - parseFloat(product.price.replace('$','')) / 
+                      parseFloat(product.originalPrice.replace('$',''))) * 100)}% off
+                  </span>
                 )}
               </div>
+              
               <div className="rating-container">
-                <span className="product-rating">⭐ {product.rating}</span>
+                <div className="stars">
+                  {renderStars(product.rating)}
+                  <span className="rating-value">{product.rating}</span>
+                </div>
                 <span className="product-reviews">({product.reviews} reviews)</span>
               </div>
-              <div className="quantity-controls">
+              
+              <div className="product-actions">
+                <div className="quantity-controls">
+                  <button 
+                    className="quantity-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleQuantityChange(product.id, productQuantities[product.id] - 1);
+                    }}
+                  >
+                    <FaMinus />
+                  </button>
+                  <span className="quantity-display">{productQuantities[product.id]}</span>
+                  <button 
+                    className="quantity-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleQuantityChange(product.id, productQuantities[product.id] + 1);
+                    }}
+                  >
+                    <FaPlus />
+                  </button>
+                </div>
+                
                 <button 
-                  className="quantity-button"
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent navigation
-                    handleQuantityChange(product.id, productQuantities[product.id] - 1);
-                  }}
+                  className={`add-to-cart-button ${!product.inStock ? 'out-of-stock' : ''}`}
+                  disabled={!product.inStock}
+                  onClick={(e) => handleAddToCart(product, e)}
                 >
-                  -
-                </button>
-                <span className="quantity-display">{productQuantities[product.id]}</span>
-                <button 
-                  className="quantity-button"
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent navigation
-                    handleQuantityChange(product.id, productQuantities[product.id] + 1);
-                  }}
-                >
-                  +
+                  <FaShoppingCart className="cart-icon" />
+                  {product.inStock ? 'Add to Cart' : 'Out of Stock'}
                 </button>
               </div>
-              <button 
-                className={`add-to-cart-button ${!product.inStock ? 'out-of-stock' : ''}`}
-                disabled={!product.inStock}
-                onClick={(e) => {
-                  e.stopPropagation(); // Prevent navigation
-                  handleAddToCart(product);
-                }}
-              >
-                {product.inStock ? 'Add to Cart' : 'Out of Stock'}
-              </button>
             </div>
           </div>
         ))}   
       </div>
-    </>
+    </section>
   );
 }
+
 export default Products;

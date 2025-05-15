@@ -6,6 +6,7 @@ import { FcGoogle } from 'react-icons/fc';
 import { FiMail, FiLock } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import { useNavigate } from "react-router-dom";
+import {motion} from 'framer-motion';
 function Login() {
   const { userLoggedIn } = useAuth();
   const emailRef = useRef();
@@ -70,31 +71,53 @@ function Login() {
     setLoading(true);
     try {
       await doSignInWithGoogle();
+      // Successful login
+      navigate("/");
     } catch (error) {
       console.error("Error logging in with Google:", error.message);
     } finally {
       setLoading(false);
+
     }
   };
 
   return (
-    <>
-      <div className="login-page">
-        <div className="login-container">
-          <div className="login-brand">
+    <div className="login-page">
+      <div className="login-container">
+        <motion.div 
+          className="login-card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <div className="auth-header">
             <Link to="/" className="logo">
-              <span className="logo-icon">🛍️</span>
-              <span className="logo-text">Choose&Get</span>
+              <span className="logo-icon">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 16H28" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                  <path d="M4 8H28" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                  <path d="M4 24H28" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                </svg>
+              </span>
+              <span className="logo-text">Choose<span className="logo-highlight">&</span>Get</span>
             </Link>
+            <h2>Welcome Back</h2>
+            <p className="subtitle">Continue to your account</p>
           </div>
 
-          <div className="login-card">
-            <h2>Welcome Back</h2>
-            <p className="subtitle">Please enter your details</p>
-
-            {error.message && (
-              <div className={`error-message ${error.type}`}>
-                {error.message}
+          {error.message && (
+            <motion.div 
+              className={`alert-message ${error.type}`}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+            >
+              {error.type === 'verify' ? (
+                <FiCheckCircle className="alert-icon" />
+              ) : (
+                <FiAlertTriangle className="alert-icon" />
+              )}
+              <div className="alert-content">
+                <span>{error.message}</span>
                 {error.type === 'verify' && (
                   <button
                     className="resend-link"
@@ -117,55 +140,76 @@ function Login() {
                   </button>
                 )}
               </div>
-            )}
+            </motion.div>
+          )}
 
-            <form className="login-form" onSubmit={handleLogin}>
-              <div className="input-group">
-                <FiMail className="input-icon" />
-                <input
-                  type="email"
-                  placeholder="Email"
-                  ref={emailRef}
-                  required
-                />
-              </div>
-
-              <div className="input-group">
-                <FiLock className="input-icon" />
-                <input
-                  type="password"
-                  placeholder="Password"
-                  ref={passwordRef}
-                  required
-                />
-              </div>
-
-              <button type="submit" className="login-btn" disabled={loading}>
-                {loading ? 'Signing in...' : 'Sign In'}
-              </button>
-            </form>
-
-            <div className="divider">
-              <span>OR</span>
+          <form className="login-form" onSubmit={handleLogin}>
+            <div className="input-group">
+              <FiMail className="input-icon" />
+              <input
+                type="email"
+                placeholder="Email"
+                ref={emailRef}
+                required
+                className="auth-input"
+              />
+              <div className="input-border"></div>
             </div>
 
-            <button
-              className="google-btn"
-              onClick={handleGoogleLogin}
+            <div className="input-group">
+              <FiLock className="input-icon" />
+              <input
+                type="password"
+                placeholder="Password"
+                ref={passwordRef}
+                required
+                className="auth-input"
+              />
+              <div className="input-border"></div>
+            </div>
+
+            <motion.button 
+              whileTap={{ scale: 0.98 }}
+              type="submit" 
+              className="auth-btn primary"
               disabled={loading}
             >
-              <FcGoogle className="google-icon" />
-              Sign in with Google
-            </button>
+              {loading ? (
+                <div className="spinner"></div>
+              ) : 'Sign In'}
+            </motion.button>
+          </form>
 
-            <div className="footer-links">
-              <Link to="/forgot-password">Forgot password?</Link>
-              <span>Don't have an account? <Link to="/signup">Sign up</Link></span>
-            </div>
+          <div className="auth-divider">
+            <span className="divider-line"></span>
+            <span className="divider-text">OR</span>
+            <span className="divider-line"></span>
           </div>
-        </div>
+
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            className="auth-btn google"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+          >
+            <FcGoogle className="auth-btn-icon" />
+            Continue with Google
+          </motion.button>
+
+          <div className="auth-footer">
+            <Link to="/forgot-password" className="auth-link">
+              Forgot password?
+            </Link>
+            <span className="auth-footer-text">
+              Don't have an account?{' '}
+              <Link to="/signup" className="auth-link accent">
+                Create account
+              </Link>
+            </span>
+          </div>
+        </motion.div>
       </div>
-    </>
+    </div>
   );
 }
 

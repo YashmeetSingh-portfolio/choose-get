@@ -13,6 +13,7 @@ import { AuthProvider } from '../context/index.jsx';
 import ReturnsOrders from './returnsOrders.jsx';
 import ProductDetails from './product_detail.jsx';
 import CheckoutPage from './checkoutpage.jsx';
+import '../style/app.css';
 function App() {
 
   const [count, setCount] = useState(0);

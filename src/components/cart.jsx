@@ -1,32 +1,39 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { FaTrash, FaPlus, FaMinus, FaArrowLeft, FaShoppingBag } from 'react-icons/fa';
 import NavBar from './navBar';
-import '../style/nav.css';
 import '../style/cart.css';
-import { db, auth } from '../firebase/firebase'; // Import Firebase Auth and Firestore
-import { doc, setDoc, collection, addDoc } from 'firebase/firestore'; // Firestore functions
+
 function Cart() {
   const navigate = useNavigate();
   const [localCartProducts, setLocalCartProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load cart products from localStorage when component mounts
- 
   useEffect(() => {
-    try {
-      const storedProducts = localStorage.getItem('cartProducts');
-      if (storedProducts) {
-        setLocalCartProducts(JSON.parse(storedProducts));
+    const loadCart = () => {
+      try {
+        const storedProducts = localStorage.getItem('cartProducts');
+        if (storedProducts) {
+          setLocalCartProducts(JSON.parse(storedProducts));
+        }
+      } catch (error) {
+        console.error('Error parsing cart products:', error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Error parsing cart products:', error);
-    }
+    };
+
+    loadCart();
+    window.addEventListener('cartUpdated', loadCart);
+
+    return () => {
+      window.removeEventListener('cartUpdated', loadCart);
+    };
   }, []);
 
   function handleRemoveFromCart(productId) {
     try {
-      const storedProducts = JSON.parse(localStorage.getItem('cartProducts')) || [];
-      const updatedProducts = storedProducts.filter(product => product.id !== productId);
-      
+      const updatedProducts = localCartProducts.filter(product => product.id !== productId);
       localStorage.setItem('cartProducts', JSON.stringify(updatedProducts));
       setLocalCartProducts(updatedProducts);
       window.dispatchEvent(new Event('cartUpdated'));
@@ -39,10 +46,10 @@ function Cart() {
     try {
       const updatedProducts = localCartProducts.map(product => {
         if (product.id === productId) {
-          const newQuantity = product.quantity + amount;
+          const newQuantity = Math.max(1, product.quantity + amount);
           return {
             ...product,
-            quantity: newQuantity > 0 ? newQuantity : 1
+            quantity: newQuantity
           };
         }
         return product;
@@ -56,95 +63,179 @@ function Cart() {
     }
   }
 
-  function calculateTotal() {
+  function calculateSubtotal() {
     return localCartProducts.reduce((total, product) => {
       const price = parseFloat(product.price.replace('$', ''));
-
       return total + (price * product.quantity);
     }, 0).toFixed(2);
   }
- localStorage.setItem('cartTotal', JSON.stringify(calculateTotal()));
+
+  function calculateTotal() {
+    const subtotal = parseFloat(calculateSubtotal());
+    const shipping = subtotal > 50 ? 0 : 5.99;
+    const tax = subtotal * 0.08;
+    return (subtotal + shipping + tax).toFixed(2);
+  }
+
   async function handleCheckOut() {
+    localStorage.setItem('cartTotal', JSON.stringify(calculateTotal()));
     navigate('/checkout');
   }
 
-  if (localCartProducts.length > 0) {
+  if (isLoading) {
     return (
-      <div className="cart">
+      <div className="loading-screen">
+        <div className="loading-spinner"></div>
+      </div>
+    );
+  }
+
+  if (localCartProducts.length === 0) {
+    return (
+      <div className="cart-page">
         <NavBar />
+        <div className="empty-cart-container">
+          <div className="empty-cart">
+            <FaShoppingBag className="empty-cart-icon" />
+            <h2>Your Shopping Cart is Empty</h2>
+            <p>Looks like you haven't added any items yet</p>
+            <Link to="/" className="continue-shopping-button">
+              <FaArrowLeft className="button-icon" />
+              Continue Shopping
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="cart-page">
+      <NavBar />
+      
+      {/* Mobile Checkout Summary - Fixed at Top */}
+      <div className="mobile-checkout-summary">
+        <div className="mobile-summary-content">
+          <div className="mobile-summary-row">
+            <span>Total ({localCartProducts.reduce((sum, item) => sum + item.quantity, 0)} items):</span>
+            <span>${calculateSubtotal()}</span>
+          </div>
+          <button 
+            className="mobile-checkout-button"
+            onClick={handleCheckOut}
+          >
+            Proceed to Checkout
+          </button>
+        </div>
+      </div>
+
+      <div className="cart-container">
+        <div className="cart-header">
+          <h1>Your Shopping Cart</h1>
+          <p>{localCartProducts.reduce((sum, item) => sum + item.quantity, 0)} items</p>
+        </div>
+
         <div className="cart-layout">
-          <div className="products-list">
+          <div className="cart-items">
             {localCartProducts.map((cartProduct) => (
-              <div key={cartProduct.id} className="cart-card">
-                <img 
-                  src={cartProduct.image} 
-                  alt={cartProduct.title} 
-                  className="cart-image" 
-                  loading="lazy"
-                />
-                <div className="cart-details">
-                  <h2 className="cart-title">{cartProduct.title}</h2>
-                  <p className="cart-description">{cartProduct.description}</p>
-                  <div className="price-container">
-                    <p className="cart-price">{cartProduct.price}</p>
+              <div key={cartProduct.id} className="cart-item">
+                <div className="item-image-container">
+                  <img 
+                    src={cartProduct.image} 
+                    alt={cartProduct.title} 
+                    className="item-image" 
+                    loading="lazy"
+                  />
+                </div>
+                
+                <div className="item-details">
+                  <div className="item-header">
+                    <h3 className="item-title">{cartProduct.title}</h3>
+                    <button 
+                      className="remove-item"
+                      onClick={() => handleRemoveFromCart(cartProduct.id)}
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                  
+                  <p className="item-description">{cartProduct.description}</p>
+                  
+                  <div className="price-info">
+                    <span className="current-price">{cartProduct.price}</span>
                     {cartProduct.originalPrice && (
-                      <p className="original-price"><s>{cartProduct.originalPrice}</s></p>
+                      <span className="original-price">{cartProduct.originalPrice}</span>
                     )}
                   </div>
-                  <div className="rating-container">
-                    <span className="cart-rating">⭐ {cartProduct.rating}</span>
-                    <span className="cart-reviews">({cartProduct.reviews} reviews)</span>
+                  
+                  <div className="item-controls">
+                    <div className="quantity-selector">
+                      <button 
+                        className="quantity-btn"
+                        onClick={() => handleQuantityChange(cartProduct.id, -1)}
+                      >
+                        <FaMinus />
+                      </button>
+                      <span className="quantity">{cartProduct.quantity}</span>
+                      <button 
+                        className="quantity-btn"
+                        onClick={() => handleQuantityChange(cartProduct.id, 1)}
+                      >
+                        <FaPlus />
+                      </button>
+                    </div>
+                    
+                    <div className="item-total">
+                      ${(parseFloat(cartProduct.price.replace('$', '')) * cartProduct.quantity).toFixed(2)}
+                    </div>
                   </div>
-                  <div className="cart-quantity-controls">
-                    <button 
-                      className="quantity-btn"
-                      onClick={() => handleQuantityChange(cartProduct.id, -1)}
-                    >
-                      -
-                    </button>
-                    <span className="quantity-value">{cartProduct.quantity}</span>
-                    <button 
-                      className="quantity-btn"
-                      onClick={() => handleQuantityChange(cartProduct.id, 1)}
-                    >
-                      +
-                    </button>
-                  </div>
-                  <p className="item-total">
-                    Item Total: ${(parseFloat(cartProduct.price.replace('$', '')) * cartProduct.quantity).toFixed(2)}
-                  </p>
-                  <button 
-                    className="remove-from-cart-button"
-                    onClick={() => handleRemoveFromCart(cartProduct.id)}
-                  >
-                    Remove from Cart
-                  </button>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="cart-summary-container">
-            <div className="cart-summary">
-              <h3>Order Summary</h3>
-              <p>Total Items: {localCartProducts.reduce((sum, item) => sum + item.quantity, 0)}</p>
-              <p>Subtotal: ${calculateTotal()}</p>
-              <button onClick={handleCheckOut} className="checkout-button">Proceed to Checkout</button>
+          {/* Full Order Summary - Now at bottom for mobile */}
+          <div className="order-summary">
+            <h2>Order Summary</h2>
+            
+            <div className="summary-row">
+              <span>Subtotal</span>
+              <span>${calculateSubtotal()}</span>
             </div>
+            
+            <div className="summary-row">
+              <span>Shipping</span>
+              <span>{calculateSubtotal() > 50 ? 'FREE' : '$5.99'}</span>
+            </div>
+            
+            <div className="summary-row">
+              <span>Estimated Tax</span>
+              <span>${(parseFloat(calculateSubtotal()) * 0.08).toFixed(2)}</span>
+            </div>
+            
+            <div className="summary-divider"></div>
+            
+            <div className="summary-row total">
+              <span>Total</span>
+              <span>${calculateTotal()}</span>
+            </div>
+            
+            <button 
+              className="checkout-button"
+              onClick={handleCheckOut}
+            >
+              Proceed to Checkout
+            </button>
+            
+            <Link to="/" className="continue-shopping-link">
+              <FaArrowLeft className="link-icon" />
+              Continue Shopping
+            </Link>
           </div>
         </div>
       </div>
-    );
-  } else {
-    return (
-      <>
-        <NavBar />
-        <div className="empty-cart">
-          <h2 className='empty'>Your cart is empty!</h2>
-        </div>
-      </>
-    );
-  }
+    </div>
+  );
 }
 
 export default Cart;
